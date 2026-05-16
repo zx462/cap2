@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MARL Wi-Fi 7 Simulation</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f6ff;min-height:100vh;color:#1e293b}
+
+header{background:white;text-align:center;padding:26px 20px 18px;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:10}
+header h1{font-size:clamp(0.95rem,2.8vw,1.4rem);color:#7c3aed;font-weight:800;line-height:1.55}
+
+.phase{display:none}
+.phase.active{display:block}
+
+/* ===== PHASE 1 ===== */
+#phase1.active{display:flex;flex-direction:column;align-items:center;padding:48px 16px 44px;gap:18px}
+
+.file-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center}
+.file-label{
+  position:relative;display:flex;align-items:center;gap:8px;
+  border:2px dashed #c4b5fd;border-radius:10px;
+  padding:12px 30px;cursor:pointer;color:#64748b;
+  background:white;font-size:0.9rem;min-height:48px;
+  transition:border-color .2s,background .2s;width:280px;justify-content:center;overflow:hidden
+}
+.file-label:hover{border-color:#7c3aed;background:#faf5ff}
+.file-label.has-file{border-color:#7c3aed;border-style:solid;color:#4c1d95;background:#faf5ff}
+#fileInput{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.btn-primary{
+  background:linear-gradient(135deg,#c084fc,#818cf8);
+  color:white;border:none;padding:12px 28px;border-radius:10px;
+  cursor:pointer;font-size:0.95rem;font-weight:700;white-space:nowrap;
+  transition:opacity .2s;box-shadow:0 4px 14px rgba(124,58,237,.3)
+}
+.btn-primary:hover{opacity:0.9}
+.btn-primary:active{transform:scale(.98)}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed}
+
+.file-class-card{
+  display:none;background:white;border-radius:14px;
+  padding:18px 20px;box-shadow:0 2px 14px rgba(0,0,0,.08);
+  border:1.5px solid #e8e4ff;width:100%;max-width:580px
+}
+.file-class-card.visible{display:block}
+.fc-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.fc-icon{font-size:2rem;line-height:1;flex-shrink:0;margin-top:2px}
+.fc-info{flex:1;min-width:0}
+.fc-name{font-weight:700;color:#1e293b;font-size:0.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fc-meta{font-size:0.75rem;color:#64748b;margin-top:3px}
+.fc-meta strong{color:#4c1d95;font-weight:700}
+.fc-divider{height:1px;background:#f1f5f9;margin-bottom:14px}
+.fc-classify{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.fc-classify-left{display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+.fc-classify-label{font-size:0.62rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em}
+.fc-class-badge{display:inline-flex;align-items:center;gap:5px;font-size:0.82rem;font-weight:700;padding:5px 14px;border-radius:20px;white-space:nowrap}
+.fc-class-badge.high{background:#fef3c7;color:#b45309;border:1.5px solid #fde68a}
+.fc-class-badge.mid{background:#ede9fe;color:#5b21b6;border:1.5px solid #ddd6fe}
+.fc-class-badge.low{background:#d1fae5;color:#065f46;border:1.5px solid #a7f3d0}
+.fc-classify-right{flex:1;min-width:0}
+.intens-wrap{display:flex;flex-direction:column;gap:4px}
+.intens-row{display:flex;align-items:center;gap:8px}
+.intens-track{flex:1;height:7px;background:#f0f0f8;border-radius:4px;overflow:hidden}
+.intens-fill{height:100%;border-radius:4px;transition:width .4s ease}
+.intens-fill.high{background:linear-gradient(90deg,#fb923c,#f97316)}
+.intens-fill.mid{background:linear-gradient(90deg,#a78bfa,#7c3aed)}
+.intens-fill.low{background:linear-gradient(90deg,#34d399,#059669)}
+.intens-pct{font-size:0.68rem;font-weight:700;width:28px;text-align:right;flex-shrink:0}
+.intens-pct.high{color:#f97316}
+.intens-pct.mid{color:#7c3aed}
+.intens-pct.low{color:#059669}
+
+/* ===== PHASE 2 ===== */
+#phase2.active{display:block;padding:18px 16px 30px}
+.sim-label{text-align:center;margin-bottom:14px}
+.sim-badge{display:inline-flex;align-items:center;gap:8px;background:white;border-radius:20px;padding:7px 18px;box-shadow:0 2px 10px rgba(0,0,0,.08);font-size:0.82rem;font-weight:700;color:#4c1d95}
+.sim-tag{font-size:0.68rem;padding:3px 10px;border-radius:10px;font-weight:700}
+.sim-tag.high{background:#fef3c7;color:#b45309}
+.sim-tag.mid{background:#ede9fe;color:#5b21b6}
+.sim-tag.low{background:#d1fae5;color:#065f46}
+
+.panels-wrap{display:flex;gap:14px;max-width:980px;margin:0 auto;align-items:flex-start}
+.panel{flex:1;background:white;border-radius:16px;padding:18px 16px;box-shadow:0 2px 16px rgba(0,0,0,.07)}
+.panel-beb{border-top:4px solid #ec4899}
+.panel-marl{border-top:4px solid #3b82f6}
+.panel-title{text-align:center;font-weight:700;font-size:1rem;margin-bottom:10px}
+.panel-beb .panel-title{color:#ec4899}
+.panel-marl .panel-title{color:#3b82f6}
+
+/* pkt grid */
+.pkt-grid{display:flex;flex-wrap:wrap;gap:2px;margin-bottom:10px;min-height:28px}
+.pkt{width:7px;height:7px;border-radius:1.5px;background:#e2e8f0;transition:background .2s}
+
+/* gauge */
+.gauge-wrap{display:flex;flex-direction:column;align-items:center;margin:2px 0 8px}
+.gauge-svg{width:150px;height:85px;display:block}
+
+/* episode progress */
+.ep-prog-wrap{margin:4px 0 8px}
+.ep-label{display:flex;justify-content:space-between;font-size:0.72rem;color:#94a3b8;margin-bottom:4px}
+.prog-track{height:8px;background:#f0f0f8;border-radius:4px;overflow:hidden}
+.prog-fill{height:100%;border-radius:4px;width:0%;transition:width .4s}
+.panel-beb .prog-fill{background:#ec4899}
+.panel-marl .prog-fill{background:#3b82f6}
+
+.metrics-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;text-align:center;margin-top:8px}
+.metric{background:#f8faff;border-radius:8px;padding:7px 3px}
+.metric-val{font-size:0.95rem;font-weight:700;display:block}
+.panel-beb .metric-val{color:#ec4899}
+.panel-marl .metric-val{color:#3b82f6}
+.metric-lbl{font-size:0.6rem;color:#94a3b8}
+.panel-status{text-align:center;font-size:0.82rem;font-weight:700;margin-top:9px;min-height:20px}
+.panel-beb .panel-status{color:#ec4899}
+.panel-marl .panel-status{color:#3b82f6}
+
+/* log console */
+.log-section{max-width:980px;margin:18px auto 0;background:#0f172a;border-radius:12px;padding:12px 14px;max-height:130px;overflow-y:auto}
+.log-section pre{font-size:0.68rem;color:#94a3b8;white-space:pre-wrap;word-break:break-all;line-height:1.5}
+.log-section .log-rl{color:#93c5fd}
+.log-section .log-beb{color:#f9a8d4}
+
+.vs-col{display:flex;align-items:center;justify-content:center;padding:0 4px;color:#94a3b8;font-size:1.3rem;font-weight:800;padding-top:190px}
+
+/* ===== NOTIFICATION ===== */
+#notification{position:fixed;top:-90px;left:50%;transform:translateX(-50%);background:#059669;color:white;padding:13px 32px;border-radius:14px;font-size:0.95rem;font-weight:700;box-shadow:0 8px 30px rgba(5,150,105,.5);z-index:1000;transition:top .4s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;pointer-events:none}
+#notification.show{top:18px}
+
+/* ===== PHASE 3 ===== */
+#phase3.active{display:block;padding:28px 16px 40px}
+.p3-header{text-align:center;margin-bottom:6px}
+.p3-header h2{font-size:1.2rem;font-weight:800;color:#1e293b}
+.p3-sub{text-align:center;font-size:0.8rem;color:#94a3b8;margin-bottom:22px}
+
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:860px;margin:0 auto 14px}
+.chart-card{background:white;border-radius:12px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.chart-card h4{text-align:center;font-size:0.82rem;color:#64748b;margin-bottom:12px}
+
+.result-table-wrap{max-width:860px;margin:0 auto 14px;background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden}
+.result-table{width:100%;border-collapse:collapse}
+.result-table th,.result-table td{padding:12px 18px;text-align:center;border-bottom:1px solid #f1f5f9;font-size:0.88rem}
+.result-table th{background:#f8faff;color:#64748b;font-weight:600}
+.result-table th.beb{color:#ec4899}
+.result-table th.marl{color:#3b82f6}
+.result-table tr:last-child td{border-bottom:none}
+
+.improvement{max-width:860px;margin:0 auto 28px;background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:20px;text-align:center}
+.improvement-value{font-size:2.2rem;font-weight:800}
+.improvement-label{font-size:0.82rem;color:#64748b;margin-top:4px}
+
+.btn-back{display:block;margin:24px auto 0;background:white;border:2px solid #e2e8f0;color:#64748b;padding:10px 28px;border-radius:10px;cursor:pointer;font-size:0.88rem;font-weight:600;transition:all .2s}
+.btn-back:hover{border-color:#7c3aed;color:#7c3aed}
+
+@media(max-width:640px){
+  .panels-wrap{flex-direction:column}
+  .vs-col{padding:4px;font-size:1rem}
+  .charts-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Adaptive Reinforcement Learning-Based Uplink Access<br>for Wi-Fi 7 with Heterogeneous Devices</h1>
+</header>
+
+<div id="notification"></div>
+
+<!-- ===== PHASE 1 ===== -->
+<div id="phase1" class="phase active">
+
+  <div class="file-row">
+    <label class="file-label" id="fileLabel">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none">
+        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+        <polyline points="13 2 13 9 20 9"/>
+      </svg>
+      <span id="fileLabelText" style="pointer-events:none">파일 선택</span>
+      <input type="file" id="fileInput">
+    </label>
+    <button class="btn-primary" id="startBtn" onclick="startSim()">▶ 시뮬레이션 시작</button>
+  </div>
+
+  <div class="file-class-card" id="fileClassCard">
+    <div class="fc-top">
+      <div class="fc-icon">📄</div>
+      <div class="fc-info">
+        <div class="fc-name" id="fcName">—</div>
+        <div class="fc-meta">
+          <strong id="fcSize">—</strong> &nbsp;·&nbsp; <span id="fcPkts">—</span>
+        </div>
+      </div>
+    </div>
+    <div class="fc-divider"></div>
+    <div class="fc-classify">
+      <div class="fc-classify-left">
+        <div class="fc-classify-label">패킷 도착률</div>
+        <span class="fc-class-badge" id="fcClassBadge">중간 패킷 도착률</span>
+      </div>
+      <div class="fc-classify-right">
+        <div class="intens-wrap">
+          <div class="intens-row">
+            <div class="intens-track">
+              <div class="intens-fill mid" id="intensFill" style="width:55%"></div>
+            </div>
+            <span class="intens-pct mid" id="intensPct">중</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== PHASE 2 ===== -->
+<div id="phase2" class="phase">
+  <div class="sim-label">
+    <div class="sim-badge">
+      <span class="sim-tag" id="simTagBadge">중간</span>
+      <span id="simBadgeText">중간 패킷 도착률 시나리오 평가 중</span>
+    </div>
+  </div>
+  <div class="panels-wrap">
+
+    <div class="panel panel-beb">
+      <div class="panel-title">기존 방식 (BEB)</div>
+      <div class="pkt-grid" id="bebGrid"></div>
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="0 0 150 85">
+          <path d="M15 75 A55 55 0 0 1 135 75" fill="none" stroke="#f0f0f8" stroke-width="13" stroke-linecap="round"/>
+          <path d="M15 75 A55 55 0 0 1 135 75" fill="none" stroke="#ec4899" stroke-width="13" stroke-linecap="round"
+                id="bebArc" stroke-dasharray="0 172.8"/>
+          <text x="75" y="58" text-anchor="middle" font-size="17" font-weight="800" fill="#ec4899" id="bebGaugeTxt">0.00</text>
+          <text x="75" y="72" text-anchor="middle" font-size="8" fill="#94a3b8">Mbps</text>
+        </svg>
+      </div>
+      <div class="ep-prog-wrap">
+        <div class="ep-label"><span id="bebEpLabel">에피소드 0/4</span><span id="bebSuccessLabel">성공: 0회</span></div>
+        <div class="prog-track"><div class="prog-fill" id="bebProg"></div></div>
+      </div>
+      <div class="metrics-row">
+        <div class="metric"><span class="metric-val" id="bebMld">—</span><span class="metric-lbl">MLD Mbps</span></div>
+        <div class="metric"><span class="metric-val" id="bebTx">—</span><span class="metric-lbl">Tx Ratio</span></div>
+      </div>
+      <div class="panel-status" id="bebStatus">대기 중...</div>
+    </div>
+
+    <div class="vs-col">VS</div>
+
+    <div class="panel panel-marl">
+      <div class="panel-title">제안 방식 (RL)</div>
+      <div class="pkt-grid" id="marlGrid"></div>
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="0 0 150 85">
+          <path d="M15 75 A55 55 0 0 1 135 75" fill="none" stroke="#f0f0f8" stroke-width="13" stroke-linecap="round"/>
+          <path d="M15 75 A55 55 0 0 1 135 75" fill="none" stroke="#3b82f6" stroke-width="13" stroke-linecap="round"
+                id="marlArc" stroke-dasharray="0 172.8"/>
+          <text x="75" y="58" text-anchor="middle" font-size="17" font-weight="800" fill="#3b82f6" id="marlGaugeTxt">0.00</text>
+          <text x="75" y="72" text-anchor="middle" font-size="8" fill="#94a3b8">Mbps</text>
+        </svg>
+      </div>
+      <div class="ep-prog-wrap">
+        <div class="ep-label"><span id="marlEpLabel">에피소드 0/4</span><span id="marlSuccessLabel">성공: 0회</span></div>
+        <div class="prog-track"><div class="prog-fill" id="marlProg"></div></div>
+      </div>
+      <div class="metrics-row">
+        <div class="metric"><span class="metric-val" id="marlMld">—</span><span class="metric-lbl">MLD Mbps</span></div>
+        <div class="metric"><span class="metric-val" id="marlTx">—</span><span class="metric-lbl">Tx Ratio</span></div>
+      </div>
+      <div class="panel-status" id="marlStatus">대기 중...</div>
+    </div>
+
+  </div>
+
+  <!-- raw log console -->
+  <div class="log-section" id="logSection">
+    <pre id="logPre">서버 연결 대기 중...</pre>
+  </div>
+</div>
+
+<!-- ===== PHASE 3 ===== -->
+<div id="phase3" class="phase">
+  <div class="p3-header"><h2>실제 평가 결과</h2></div>
+  <div class="p3-sub" id="p3Sub">—</div>
+
+  <div class="charts-grid">
+    <div class="chart-card"><h4>System Throughput (Mbps)</h4><canvas id="cThroughput"></canvas></div>
+    <div class="chart-card"><h4>성공 전송 횟수 (회)</h4><canvas id="cSuccess"></canvas></div>
+  </div>
+
+  <div class="result-table-wrap">
+    <table class="result-table">
+      <thead><tr><th>항목</th><th class="beb">기존 방식 (BEB)</th><th class="marl">제안 방식 (RL)</th></tr></thead>
+      <tbody>
+        <tr><td>System Throughput</td><td id="rBSys">-</td><td id="rMSys">-</td></tr>
+        <tr><td>MLD Throughput</td><td id="rBMld">-</td><td id="rMMld">-</td></tr>
+        <tr><td>SLD Throughput</td><td id="rBSld">-</td><td id="rMSld">-</td></tr>
+        <tr><td>총 성공 횟수</td><td id="rBSucc">-</td><td id="rMSucc">-</td></tr>
+        <tr><td>예상 전송 시간</td><td id="rBTime">-</td><td id="rMTime">-</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="improvement">
+    <div class="improvement-value" id="impVal">—</div>
+    <div class="improvement-label">System Throughput 개선 (BEB 대비)</div>
+    <div style="margin-top:8px;font-size:0.8rem;color:#64748b" id="impDetail"></div>
+  </div>
+
+  <button class="btn-back" onclick="backToPhase1()">← 다른 파일 선택</button>
+</div>
+
+<script>
+// ========== CONFIG ==========
+const SERVER = 'http://localhost:5050';
+const ARC_LEN = 172.8;
+const MAX_GRID = 200;
+const TOTAL_EPISODES = 4;
+
+const SCENARIOS = [
+  { id:'high', tagLabel:'높음', tagClass:'high', label:'높은 패킷 도착률',
+    intensClass:'high', intensWidth:'88%', intensPct:'높',
+    muLo:0.090, muHi:0.120 },
+  { id:'mid',  tagLabel:'중간', tagClass:'mid',  label:'중간 패킷 도착률',
+    intensClass:'mid',  intensWidth:'55%', intensPct:'중',
+    muLo:0.055, muHi:0.085 },
+  { id:'low',  tagLabel:'낮음', tagClass:'low',  label:'낮은 패킷 도착률',
+    intensClass:'low',  intensWidth:'22%', intensPct:'낮',
+    muLo:0.010, muHi:0.040 },
+];
+
+// 파일 용량에서 시나리오 범위 내 μ를 선형 보간
+function calcMuExact(sizeMB, idx) {
+  const sc = SCENARIOS[idx];
+  let t;
+  if (idx === 0)      t = Math.min((sizeMB - 20) / 30, 1); // high: 20MB→0, 50MB→1
+  else if (idx === 1) t = Math.min((sizeMB -  5) / 15, 1); // mid:   5MB→0, 20MB→1
+  else                t = Math.min( sizeMB        /  5, 1); // low:   0MB→0,  5MB→1
+  return sc.muLo + t * (sc.muHi - sc.muLo);
+}
+
+function classifyFile(sizeMB) {
+  if (sizeMB >= 20) return 0;
+  if (sizeMB >= 5)  return 1;
+  return 2;
+}
+
+// ========== STATE ==========
+let fileSizeMB = 0;
+let muExact    = 0.07;   // 파일 크기에서 계산된 정확한 μ
+let scenarioIdx = 1;
+let chartThroughput = null, chartSuccess = null;
+
+const ST = {
+  beb: { ep:0, gridFilled:0, mbpsSystem:0, mbpsMld:0, mbpsSld:0, tx:0, done:false, summary:null, targetGrid:0 },
+  rl:  { ep:0, gridFilled:0, mbpsSystem:0, mbpsMld:0, mbpsSld:0, tx:0, done:false, summary:null, targetGrid:0 },
+};
+
+// Smooth animation state
+const ANIM = {
+  beb: { curMbps:0, targetMbps:0 },
+  rl:  { curMbps:0, targetMbps:0 },
+};
+let maxMbps = 10;
+let animRafId = null;
+let sse = null;
+
+// ========== FILE INPUT ==========
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  const f = e.target.files[0];
+  if (!f) return;
+  fileSizeMB = f.size / 1024 / 1024;
+  scenarioIdx = classifyFile(fileSizeMB);
+  muExact     = calcMuExact(fileSizeMB, scenarioIdx);
+  const sc = SCENARIOS[scenarioIdx];
+
+  document.getElementById('fileLabelText').textContent =
+    f.name.length > 28 ? f.name.slice(0, 25) + '…' : f.name;
+  document.getElementById('fileLabel').classList.add('has-file');
+  document.getElementById('fcName').textContent = f.name;
+  document.getElementById('fcSize').textContent = fileSizeMB.toFixed(2) + ' MB';
+  document.getElementById('fcPkts').textContent = '용량 기반 분류';
+
+  const badge = document.getElementById('fcClassBadge');
+  badge.textContent = sc.label;
+  badge.className   = 'fc-class-badge ' + sc.id;
+
+  const fill = document.getElementById('intensFill');
+  fill.style.width = sc.intensWidth;
+  fill.className   = 'intens-fill ' + sc.intensClass;
+
+  const pct = document.getElementById('intensPct');
+  pct.textContent = sc.intensPct;
+  pct.className   = 'intens-pct ' + sc.intensClass;
+
+  document.getElementById('fileClassCard').classList.add('visible');
+});
+
+// ========== GRID INIT ==========
+function initGrid(id) {
+  const g = document.getElementById(id);
+  g.innerHTML = '';
+  for (let i = 0; i < MAX_GRID; i++) {
+    const d = document.createElement('div');
+    d.className = 'pkt';
+    g.appendChild(d);
+  }
+}
+
+// ========== SINGLE ANIMATION LOOP ==========
+// Runs continuously while there is work to do:
+//   - Smoothly interpolates gauges toward their target
+//   - Fills grid cells one per frame toward each target
+function animTick() {
+  let active = false;
+
+  for (const policy of ['beb', 'rl']) {
+    const anim    = ANIM[policy];
+    const st      = ST[policy];
+    const uiType  = policy === 'rl' ? 'marl' : 'beb'; // gauge/arc IDs use 'marl'
+
+    // ── Gauge interpolation (expo smooth) ──────────────────────────
+    const diff = anim.targetMbps - anim.curMbps;
+    if (Math.abs(diff) > 0.0005) {
+      anim.curMbps += diff * 0.045;   // ~1.25s to close 90% of gap
+      _setGaugeRaw(uiType, anim.curMbps);
+      active = true;
+    } else if (anim.curMbps !== anim.targetMbps) {
+      anim.curMbps = anim.targetMbps;
+      _setGaugeRaw(uiType, anim.curMbps);
+    }
+
+    // ── Grid cell fill (1 cell per frame) ─────────────────────────
+    if (st.gridFilled < st.targetGrid) {
+      const id    = policy === 'rl' ? 'marlGrid' : 'bebGrid';
+      const color = policy === 'rl' ? '#3b82f6'  : '#ec4899';
+      const cells = document.getElementById(id).children;
+      if (cells[st.gridFilled]) cells[st.gridFilled].style.background = color;
+      st.gridFilled++;
+      active = true;
+    }
+  }
+
+  animRafId = active ? requestAnimationFrame(animTick) : null;
+}
+
+function startAnim() {
+  if (!animRafId) animRafId = requestAnimationFrame(animTick);
+}
+
+function _setGaugeRaw(type, mbps) {
+  const frac  = Math.min(mbps / Math.max(maxMbps, 0.01), 1);
+  const arcId = type === 'beb' ? 'bebArc'      : 'marlArc';
+  const txtId = type === 'beb' ? 'bebGaugeTxt' : 'marlGaugeTxt';
+  document.getElementById(arcId).setAttribute('stroke-dasharray',
+    `${(frac * ARC_LEN).toFixed(2)} ${ARC_LEN}`);
+  document.getElementById(txtId).textContent = mbps.toFixed(2);
+}
+
+// ========== SSE EVENT HANDLER ==========
+function handleEvent(evt) {
+  const type   = evt.type;
+  const policy = evt.policy; // 'rl', 'beb', 'server'
+
+  if (type === 'log') { appendLog(policy, evt.line); return; }
+
+  if (type === 'episode') {
+    const st   = policy === 'rl' ? ST.rl : ST.beb;
+    const anim = ANIM[policy];
+
+    st.ep         = evt.ep;
+    st.mbpsSystem = evt.mbps_system;
+    st.mbpsMld    = evt.mbps_mld;
+    st.mbpsSld    = evt.mbps_sld;
+    st.tx         = evt.tx_ratio;
+
+    maxMbps = Math.max(maxMbps, st.mbpsSystem * 1.3);
+    anim.targetMbps = st.mbpsSystem;
+    st.targetGrid   = Math.round((evt.ep / evt.total) * MAX_GRID);
+    startAnim();
+
+    const epFrac = evt.ep / evt.total;
+
+    if (policy === 'rl') {
+      document.getElementById('marlEpLabel').textContent = `에피소드 ${evt.ep}/${evt.total}`;
+      document.getElementById('marlProg').style.width   = (epFrac * 100).toFixed(1) + '%';
+      document.getElementById('marlMld').textContent    = evt.mbps_mld.toFixed(3);
+      document.getElementById('marlTx').textContent     = (evt.tx_ratio * 100).toFixed(1) + '%';
+      document.getElementById('marlStatus').textContent =
+        evt.ep === evt.total ? '평가 완료 ✓' : `에피소드 ${evt.ep} 완료 ✓`;
+    } else {
+      document.getElementById('bebEpLabel').textContent = `에피소드 ${evt.ep}/${evt.total}`;
+      document.getElementById('bebProg').style.width   = (epFrac * 100).toFixed(1) + '%';
+      document.getElementById('bebMld').textContent    = evt.mbps_mld.toFixed(3);
+      document.getElementById('bebTx').textContent     = (evt.tx_ratio * 100).toFixed(1) + '%';
+      document.getElementById('bebStatus').textContent =
+        evt.ep === evt.total ? '평가 완료' : `에피소드 ${evt.ep} 완료`;
+    }
+    return;
+  }
+
+  if (type === 'summary') {
+    const st   = policy === 'rl' ? ST.rl : ST.beb;
+    const anim = ANIM[policy];
+    st.done    = true;
+    st.summary = evt;
+
+    anim.targetMbps = evt.mbps_system;
+    st.targetGrid   = MAX_GRID;
+    startAnim();
+
+    const totalSucc = Math.round((evt.success_24 || 0) + (evt.success_5 || 0));
+    const succId    = policy === 'rl' ? 'marlSuccessLabel' : 'bebSuccessLabel';
+    document.getElementById(succId).textContent = `성공: ${totalSucc.toLocaleString()}회`;
+
+    checkBothDone();
+    return;
+  }
+
+  if (type === 'error') {
+    appendLog(policy, `[ERROR] ${evt.msg}`);
+    const st = policy === 'rl' ? ST.rl : ST.beb;
+    st.done = true;
+    checkBothDone();
+    return;
+  }
+
+  if (type === 'done') {
+    if (sse) { sse.close(); sse = null; }
+  }
+}
+
+function checkBothDone() {
+  if (ST.rl.done && ST.beb.done) {
+    setTimeout(showResults, 1800);
+  }
+}
+
+// ========== LOG CONSOLE ==========
+const LOG_MAX = 120;
+let logLines = [];
+function appendLog(policy, line) {
+  const cls = policy === 'rl' ? 'log-rl' : 'log-beb';
+  logLines.push(`<span class="${cls}">[${policy.toUpperCase()}]</span> ${escHtml(line)}`);
+  if (logLines.length > LOG_MAX) logLines.shift();
+  const pre = document.getElementById('logPre');
+  pre.innerHTML = logLines.join('\n');
+  const sect = document.getElementById('logSection');
+  sect.scrollTop = sect.scrollHeight;
+}
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ========== START ==========
+async function startSim() {
+  if (fileSizeMB <= 0) { alert('먼저 파일을 선택해주세요.'); return; }
+
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('startBtn').disabled = true;
+
+  // Reset state
+  for (const p of ['beb', 'rl']) {
+    Object.assign(ST[p],   { ep:0, gridFilled:0, mbpsSystem:0, mbpsMld:0, mbpsSld:0, tx:0, done:false, summary:null, targetGrid:0 });
+    Object.assign(ANIM[p], { curMbps:0, targetMbps:0 });
+  }
+  maxMbps  = 10;
+  logLines = [];
+  if (animRafId) { cancelAnimationFrame(animRafId); animRafId = null; }
+
+  // Phase switch
+  const tagEl = document.getElementById('simTagBadge');
+  tagEl.textContent = sc.tagLabel;
+  tagEl.className   = 'sim-tag ' + sc.tagClass;
+  document.getElementById('simBadgeText').textContent = sc.label + ' 시나리오 실제 평가 중';
+
+  document.getElementById('phase1').classList.remove('active');
+  document.getElementById('phase2').classList.add('active');
+
+  initGrid('bebGrid');
+  initGrid('marlGrid');
+
+  // Reset UI labels
+  ['beb','rl'].forEach(p => {
+    const pre = p === 'rl' ? 'marl' : 'beb';
+    document.getElementById(`${pre}Prog`).style.width    = '0%';
+    document.getElementById(`${pre}EpLabel`).textContent = '에피소드 0/4';
+    document.getElementById(`${pre === 'marl' ? 'marl' : 'beb'}SuccessLabel`).textContent = '성공: 0회';
+    document.getElementById(`${pre}Status`).textContent  = '스크립트 실행 중...';
+    document.getElementById(`${pre}Mld`).textContent     = '—';
+    document.getElementById(`${pre}Tx`).textContent      = '—';
+    document.getElementById(`${pre}GaugeTxt`).textContent = '0.00';
+    document.getElementById(`${pre}Arc`).setAttribute('stroke-dasharray', '0 172.8');
+  });
+  document.getElementById('logPre').innerHTML = '서버에 연결 중...';
+
+  // Start eval on server
+  try {
+    const resp = await fetch(SERVER + '/api/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario: sc.id, episodes: TOTAL_EPISODES, mu_exact: muExact }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json();
+      alert('서버 오류: ' + (err.error || resp.status));
+      document.getElementById('startBtn').disabled = false;
+      return;
+    }
+    const info = await resp.json();
+    appendLog('server', `평가 시작됨 — scenario=${info.scenario}, episodes=${info.episodes}`);
+  } catch (e) {
+    alert('서버에 연결할 수 없습니다.\n\n터미널에서 다음 명령을 실행하세요:\n  cd /Users/gim-yeojun/cap_sim\n  python3 server.py');
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('phase2').classList.remove('active');
+    document.getElementById('phase1').classList.add('active');
+    return;
+  }
+
+  // Open SSE stream
+  if (sse) sse.close();
+  sse = new EventSource(SERVER + '/api/progress');
+  sse.onmessage = (e) => { try { handleEvent(JSON.parse(e.data)); } catch(_) {} };
+  sse.onerror   = ()  => { appendLog('server', '[SSE 연결 끊김]'); };
+}
+
+// ========== RESULTS ==========
+function showResults() {
+  if (animRafId) { cancelAnimationFrame(animRafId); animRafId = null; }
+  if (sse) { sse.close(); sse = null; }
+  document.getElementById('phase2').classList.remove('active');
+  document.getElementById('phase3').classList.add('active');
+
+  const sc = SCENARIOS[scenarioIdx];
+  document.getElementById('p3Sub').textContent = sc.label + ' 시나리오 · ' + fileSizeMB.toFixed(2) + ' MB';
+
+  const bs = ST.beb.summary;
+  const ms = ST.rl.summary;
+
+  const bSys  = bs ? bs.mbps_system : ST.beb.mbpsSystem;
+  const mSys  = ms ? ms.mbps_system : ST.rl.mbpsSystem;
+  const bMld  = bs ? bs.mbps_mld    : ST.beb.mbpsMld;
+  const mMld  = ms ? ms.mbps_mld    : ST.rl.mbpsMld;
+  const bSld  = bs ? bs.mbps_sld    : ST.beb.mbpsSld;
+  const mSld  = ms ? ms.mbps_sld    : ST.rl.mbpsSld;
+  const bSucc = bs ? Math.round((bs.success_24||0) + (bs.success_5||0)) : 0;
+  const mSucc = ms ? Math.round((ms.success_24||0) + (ms.success_5||0)) : 0;
+
+  // 예상 전송 시간 = (파일 크기 MB × 8 Mb) / 처리율 Mbps  →  초
+  const bTime = bSys > 0 ? (fileSizeMB * 8 / bSys).toFixed(2) + ' 초' : '—';
+  const mTime = mSys > 0 ? (fileSizeMB * 8 / mSys).toFixed(2) + ' 초' : '—';
+
+  document.getElementById('rBSys').textContent  = bSys.toFixed(4) + ' Mbps';
+  document.getElementById('rMSys').textContent  = mSys.toFixed(4) + ' Mbps';
+  document.getElementById('rBMld').textContent  = bMld.toFixed(4) + ' Mbps';
+  document.getElementById('rMMld').textContent  = mMld.toFixed(4) + ' Mbps';
+  document.getElementById('rBSld').textContent  = bSld.toFixed(4) + ' Mbps';
+  document.getElementById('rMSld').textContent  = mSld.toFixed(4) + ' Mbps';
+  document.getElementById('rBSucc').textContent = bSucc.toLocaleString() + ' 회';
+  document.getElementById('rMSucc').textContent = mSucc.toLocaleString() + ' 회';
+  document.getElementById('rBTime').textContent = bTime;
+  document.getElementById('rMTime').textContent = mTime;
+
+  const impPct = bSys > 0 ? ((mSys - bSys) / bSys * 100) : 0;
+  const impEl  = document.getElementById('impVal');
+  impEl.textContent = (impPct >= 0 ? '+' : '') + impPct.toFixed(2) + '%';
+  impEl.style.color = impPct >= 0 ? '#059669' : '#ef4444';
+
+  const absGain = (mSys - bSys).toFixed(4);
+  document.getElementById('impDetail').textContent =
+    `RL: ${mSys.toFixed(4)} Mbps  vs  BEB: ${bSys.toFixed(4)} Mbps  (${parseFloat(absGain) >= 0 ? '+' : ''}${absGain} Mbps)`;
+
+  const pink = '#ec4899', blue = '#3b82f6';
+  const bOpts = {
+    plugins: { legend:{ display:false } },
+    scales:  { x:{ grid:{ display:false } }, y:{ beginAtZero:true } },
+  };
+
+  if (chartThroughput) chartThroughput.destroy();
+  if (chartSuccess)    chartSuccess.destroy();
+
+  chartThroughput = new Chart(document.getElementById('cThroughput'), {
+    type: 'bar',
+    data: {
+      labels: ['BEB','RL'],
+      datasets: [{ data:[parseFloat(bSys.toFixed(4)), parseFloat(mSys.toFixed(4))],
+        backgroundColor:[pink,blue], borderRadius:6 }],
+    },
+    options: { ...bOpts, scales:{ ...bOpts.scales, y:{ beginAtZero:true, title:{ display:true, text:'Mbps' } } } },
+  });
+
+  chartSuccess = new Chart(document.getElementById('cSuccess'), {
+    type: 'bar',
+    data: {
+      labels: ['BEB','RL'],
+      datasets: [{ data:[bSucc, mSucc], backgroundColor:[pink,blue], borderRadius:6 }],
+    },
+    options: { ...bOpts, scales:{ ...bOpts.scales, y:{ beginAtZero:true, title:{ display:true, text:'횟수' } } } },
+  });
+
+  document.getElementById('startBtn').disabled = false;
+}
+
+function backToPhase1() {
+  document.getElementById('phase3').classList.remove('active');
+  document.getElementById('phase1').classList.add('active');
+}
+</script>
+</body>
+</html>
